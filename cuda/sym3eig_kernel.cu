@@ -61,7 +61,7 @@ __global__ void eig_val_kernel(const scalar_t *__restrict__ x,
 
       eig_val[v_idx + 0] = q + 2 * p * cos(phi);
       eig_val[v_idx + 2] = q + 2 * p * cos(phi + (2 * M_PI / 3));
-      eig_val[v_idx + 1] = 3 * q - eig_val[v_idx + 0] - eig_val[3 * i + 2];
+      eig_val[v_idx + 1] = 3 * q - eig_val[v_idx + 0] - eig_val[v_idx + 2];
     }
   }
 }
@@ -110,6 +110,20 @@ __global__ void eig_vec_kernel(const scalar_t *__restrict__ x,
     if (d3 > d_max) {
       i_max = 2;
     }
+   
+    if (e % 3 == 0) {                                                  
+      eig_vec[9 * i + 3 * 0 + e % 3] = 1;      
+      eig_vec[9 * i + 3 * 1 + e % 3] = 0;      
+      eig_vec[9 * i + 3 * 2 + e % 3] = 0;      
+    } else if (e % 3 == 1) {                                           
+      eig_vec[9 * i + 3 * 0 + e % 3] = 0;      
+      eig_vec[9 * i + 3 * 1 + e % 3] = 1;      
+      eig_vec[9 * i + 3 * 2 + e % 3] = 0;      
+    } else {                                                           
+      eig_vec[9 * i + 3 * 0 + e % 3] = 0;      
+      eig_vec[9 * i + 3 * 1 + e % 3] = 0;      
+      eig_vec[9 * i + 3 * 2 + e % 3] = 1;      
+    } 
 
     if (i_max == 0) {
       eig_vec[9 * i + 3 * 0 + e % 3] = r12_1 / sqrt(d1);
@@ -124,6 +138,82 @@ __global__ void eig_vec_kernel(const scalar_t *__restrict__ x,
       eig_vec[9 * i + 3 * 1 + e % 3] = r23_2 / sqrt(d3);
       eig_vec[9 * i + 3 * 2 + e % 3] = r23_3 / sqrt(d3);
     }
+
+    if(eig_val[3 * i + 0]==eig_val[3 * i + 1] && eig_val[3 * i + 0]==eig_val[3 * i + 2]){
+      eig_vec[9 * i + 3 * 0 + 0] = 1;                   
+      eig_vec[9 * i + 3 * 1 + 0] = 0;                   
+      eig_vec[9 * i + 3 * 2 + 0] = 0; 
+      eig_vec[9 * i + 3 * 0 + 1] = 0;                   
+      eig_vec[9 * i + 3 * 1 + 1] = 1;                   
+      eig_vec[9 * i + 3 * 2 + 1] = 0; 
+      eig_vec[9 * i + 3 * 0 + 2] = 0;                   
+      eig_vec[9 * i + 3 * 1 + 2] = 0;                   
+      eig_vec[9 * i + 3 * 2 + 2] = 1; 
+    }
+  }
+}
+
+template <typename scalar_t>
+__global__ void eig_vec_correction_kernel(const scalar_t *__restrict__ x,
+                               const scalar_t *__restrict__ eig_val,
+                               scalar_t *__restrict__ eig_vec, size_t numel) {
+  const ptrdiff_t e = (ptrdiff_t)(blockIdx.x * blockDim.x + threadIdx.x);
+  const scalar_t error = 1e-5;
+
+  if (e < numel) {
+    // https://arxiv.org/pdf/physics/0610206.pdf
+    const ptrdiff_t i = e / 3;
+
+    if(std::abs(eig_val[3 * i + 0]-eig_val[3 * i + 1])<error && std::abs(eig_val[3 * i + 0]-eig_val[3 * i + 2])>error){
+      const scalar_t v_1 = eig_vec[9 * i + 3 * 0 + 1];                
+      const scalar_t v_2 = eig_vec[9 * i + 3 * 1 + 1];                
+      const scalar_t v_3 = eig_vec[9 * i + 3 * 2 + 1];                
+      const scalar_t c_1 = x[9 * i + 0] - eig_val[3 * i + 1];       
+      const scalar_t c_2 = x[9 * i + 3];                         
+      const scalar_t c_3 = x[9 * i + 6];                         
+        
+      eig_vec[9 * i + 3 * 0 + 0] = v_2 * c_3-c_2 * v_3;                   
+      eig_vec[9 * i + 3 * 1 + 0] = v_3 * c_1-c_3 * v_1;                   
+      eig_vec[9 * i + 3 * 2 + 0] = v_1 * c_2-c_1 * v_2;                   
+      const scalar_t norm = std::sqrt(std::pow(eig_vec[9 * i + 3 * 0 + 0], 2)+std::pow(eig_vec[9 * i + 3 * 1 + 0], 2)+std::pow(eig_vec[9 * i + 3 * 2 + 0], 2));
+      eig_vec[9 * i + 3 * 0 + 0] /= norm;
+      eig_vec[9 * i + 3 * 1 + 0] /= norm;
+      eig_vec[9 * i + 3 * 2 + 0] /= norm;
+    } 
+    
+    if(std::abs(eig_val[3 * i + 1]-eig_val[3 * i + 2])<error && std::abs(eig_val[3 * i + 0]-eig_val[3 * i + 2])>error){
+      const scalar_t v_1 = eig_vec[9 * i + 3 * 0 + 1];                
+      const scalar_t v_2 = eig_vec[9 * i + 3 * 1 + 1];                
+      const scalar_t v_3 = eig_vec[9 * i + 3 * 2 + 1];                
+      const scalar_t c_1 = x[9 * i + 0] - eig_val[3 * i + 1];       
+      const scalar_t c_2 = x[9 * i + 3];                         
+      const scalar_t c_3 = x[9 * i + 6];                         
+        
+      eig_vec[9 * i + 3 * 0 + 2] = v_2 * c_3-c_2 * v_3;                   
+      eig_vec[9 * i + 3 * 1 + 2] = v_3 * c_1-c_3 * v_1;                   
+      eig_vec[9 * i + 3 * 2 + 2] = v_1 * c_2-c_1 * v_2;                   
+      const scalar_t norm = std::sqrt(std::pow(eig_vec[9 * i + 3 * 0 + 2], 2)+std::pow(eig_vec[9 * i + 3 * 1 + 2], 2)+std::pow(eig_vec[9 * i + 3 * 2 + 2], 2));
+      eig_vec[9 * i + 3 * 0 + 2] /= norm;
+      eig_vec[9 * i + 3 * 1 + 2] /= norm;
+      eig_vec[9 * i + 3 * 2 + 2] /= norm;
+    } 
+    
+    if(std::abs(eig_val[3 * i + 0]-eig_val[3 * i + 2])<error && std::abs(eig_val[3 * i + 0]-eig_val[3 * i + 1])>error){
+      const scalar_t v_1 = eig_vec[9 * i + 3 * 0 + 2];                
+      const scalar_t v_2 = eig_vec[9 * i + 3 * 1 + 2];                
+      const scalar_t v_3 = eig_vec[9 * i + 3 * 2 + 2];                
+      const scalar_t c_1 = x[9 * i + 0] - eig_val[3 * i + 2];       
+      const scalar_t c_2 = x[9 * i + 3];                         
+      const scalar_t c_3 = x[9 * i + 6];                         
+        
+      eig_vec[9 * i + 3 * 0 + 0] = v_2 * c_3-c_2 * v_3;                   
+      eig_vec[9 * i + 3 * 1 + 0] = v_3 * c_1-c_3 * v_1;                   
+      eig_vec[9 * i + 3 * 2 + 0] = v_1 * c_2-c_1 * v_2;                   
+      const scalar_t norm = std::sqrt(std::pow(eig_vec[9 * i + 3 * 0 + 0], 2)+std::pow(eig_vec[9 * i + 3 * 1 + 0], 2)+std::pow(eig_vec[9 * i + 3 * 2 + 0], 2));
+      eig_vec[9 * i + 3 * 0 + 0] /= norm;
+      eig_vec[9 * i + 3 * 1 + 0] /= norm;
+      eig_vec[9 * i + 3 * 2 + 0] /= norm;
+    } 
   }
 }
 
@@ -137,6 +227,9 @@ std::tuple<at::Tensor, at::Tensor> sym3eig_fw_cuda(at::Tensor x) {
     eig_val_kernel<scalar_t><<<BLOCKS(eig_val.numel() / 3), THREADS>>>(
         x.data<scalar_t>(), eig_val.data<scalar_t>(), eig_val.numel() / 3);
     eig_vec_kernel<scalar_t><<<BLOCKS(eig_val.numel()), THREADS>>>(
+        x.data<scalar_t>(), eig_val.data<scalar_t>(), eig_vec.data<scalar_t>(),
+        eig_val.numel());
+    eig_vec_correction_kernel<scalar_t><<<BLOCKS(eig_val.numel()), THREADS>>>(
         x.data<scalar_t>(), eig_val.data<scalar_t>(), eig_vec.data<scalar_t>(),
         eig_val.numel());
   });

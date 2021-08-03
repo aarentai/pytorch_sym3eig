@@ -30,9 +30,9 @@
         const scalar_t p1 = x12 * x12 + x13 * x13 + x23 * x23;                 \
                                                                                \
         if (p1 == 0) {                                                         \
-            eig_val[v_idx + 0] = x11;                                          \
-            eig_val[v_idx + 1] = x22;                                          \
-            eig_val[v_idx + 2] = x33;                                          \
+            eig_val_data[v_idx + 0] = x11;                                     \
+            eig_val_data[v_idx + 1] = x22;                                     \
+            eig_val_data[v_idx + 2] = x33;                                     \
         } else {                                                               \
             const scalar_t q = (x11 + x22 + x33) / 3.0;                        \
             const scalar_t p2 = (x11 - q) * (x11 - q) + (x22 - q) * (x22 - q)  \
@@ -106,6 +106,20 @@
               i_max = 2;                                                       \
             }                                                                  \
                                                                                \
+            if (e_it == 0) {                                                  \
+              eig_vec_data[m_idx + 3 * 0 + e_it] = 1;      \
+              eig_vec_data[m_idx + 3 * 1 + e_it] = 0;      \
+              eig_vec_data[m_idx + 3 * 2 + e_it] = 0;      \
+            } else if (e_it == 1) {                                           \
+              eig_vec_data[m_idx + 3 * 0 + e_it] = 0;      \
+              eig_vec_data[m_idx + 3 * 1 + e_it] = 1;      \
+              eig_vec_data[m_idx + 3 * 2 + e_it] = 0;      \
+            } else {                                                           \
+              eig_vec_data[m_idx + 3 * 0 + e_it] = 0;      \
+              eig_vec_data[m_idx + 3 * 1 + e_it] = 0;      \
+              eig_vec_data[m_idx + 3 * 2 + e_it] = 1;      \
+            } \
+            \
             if (i_max == 0) {                                                  \
               eig_vec_data[m_idx + 3 * 0 + e_it] = r12_1 / std::sqrt(d1);      \
               eig_vec_data[m_idx + 3 * 1 + e_it] = r12_2 / std::sqrt(d1);      \
@@ -120,6 +134,40 @@
               eig_vec_data[m_idx + 3 * 2 + e_it] = r23_3 / std::sqrt(d3);      \
             }                                                                  \
         }                                                                      \
+        \
+        int nan_index = -1;\
+        int nan_counterpart_index = -1;\
+        for(int j = 0; j < 3; j++){\
+          if(std::isnan(eig_vec_data[m_idx + 3 * 0 + j])){\
+            nan_index = j;\
+          }\
+        }\
+        if(nan_index!=-1){\
+          for(int j = 0; j < 3; j++){\
+            if(std::abs(eig_val_data[v_idx + j]-eig_val_data[v_idx + nan_index])<1e-15){\
+              nan_counterpart_index = j;\
+              if(nan_counterpart_index!=nan_index){\
+                break;\
+              }\
+            }\
+          }\
+        }\
+        if(nan_index!=-1 && nan_counterpart_index!=-1){ \
+          const scalar_t v_1 = eig_vec_data[m_idx + 3 * 0 + nan_counterpart_index];                \
+          const scalar_t v_2 = eig_vec_data[m_idx + 3 * 1 + nan_counterpart_index];                \
+          const scalar_t v_3 = eig_vec_data[m_idx + 3 * 2 + nan_counterpart_index];                \
+          const scalar_t c_1 = matrix_data[m_idx + 0] - eig_val_data[v_idx + nan_counterpart_index];       \
+          const scalar_t c_2 = matrix_data[m_idx + 3];                         \
+          const scalar_t c_3 = matrix_data[m_idx + 6];                         \
+          \
+          eig_vec_data[m_idx + 3 * 0 + nan_index] = v_2*c_3-c_2*v_3;                   \
+          eig_vec_data[m_idx + 3 * 1 + nan_index] = v_3*c_1-c_3*v_1;                   \
+          eig_vec_data[m_idx + 3 * 2 + nan_index] = v_1*c_2-c_1*v_2;                   \
+          const scalar_t norm = std::sqrt(std::pow(eig_vec_data[m_idx + 3 * 0 + nan_index], 2)+std::pow(eig_vec_data[m_idx + 3 * 1 + nan_index], 2)+std::pow(eig_vec_data[m_idx + 3 * 2 + nan_index], 2));\
+          eig_vec_data[m_idx + 3 * 0 + nan_index] /= norm;\
+          eig_vec_data[m_idx + 3 * 1 + nan_index] /= norm;\
+          eig_vec_data[m_idx + 3 * 2 + nan_index] /= norm;\
+        }                \
       }                                                                        \
     }                                                                          \
   });                                                                          \
