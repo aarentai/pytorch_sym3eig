@@ -1,0 +1,4 @@
+sym3eig_cpu
+sym3eig_cuda
+test
+torch_sym3eig

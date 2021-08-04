@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: torch-sym3eig
+Version: 1.0.0
+Summary: Implementation of batch-wise eigenvector/value computation for symmetric 3x3 matricesBatchwise symmetric 3x3 eigencomputation in PyTorch
+Home-page: UNKNOWN
+Author: Jan Eric Lenssen
+Author-email: janeric.lenssen@tu-dortmund.de
+License: UNKNOWN
+Description: UNKNOWN
+Keywords: pytorch,eigenvector,eigenvalue,batchwise-sym3eig,geometric-deep-learning,neural-networks
+Platform: UNKNOWN

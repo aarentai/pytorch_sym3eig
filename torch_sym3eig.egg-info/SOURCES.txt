@@ -1,0 +1,17 @@
+README.md
+setup.cfg
+setup.py
+cpu/sym3eig.cpp
+cuda/sym3eig.cpp
+cuda/sym3eig_kernel.cu
+test/__init__.py
+test/benchmark.py
+test/test_sym3eig.py
+test/utils.py
+torch_sym3eig/__init__.py
+torch_sym3eig/sym3eig.py
+torch_sym3eig.egg-info/PKG-INFO
+torch_sym3eig.egg-info/SOURCES.txt
+torch_sym3eig.egg-info/dependency_links.txt
+torch_sym3eig.egg-info/requires.txt
+torch_sym3eig.egg-info/top_level.txt
